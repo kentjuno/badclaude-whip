@@ -1,0 +1,6 @@
+@echo off
+echo Starting reinstall...
+call npm uninstall electron
+call npm install
+echo Finished install. Starting app...
+call npm start

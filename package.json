@@ -1,0 +1,15 @@
+{
+  "name": "claude-whip",
+  "version": "0.1.0",
+  "description": "Physics whip overlay. For yelling at Claude.",
+  "main": "main.js",
+  "scripts": {
+    "start": "npx electron . --no-sandbox --disable-gpu"
+  },
+  "devDependencies": {
+    "electron": "^29.4.6"
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.2"
+  }
+}
