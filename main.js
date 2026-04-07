@@ -1,8 +1,8 @@
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require('electron');
 const path = require('path');
-<<<<<<< HEAD
 const { uIOhook, UiohookKey } = require('uiohook-napi');
-const { spawn } = require('child_process');
+const { spawn, execSync, exec, spawnSync } = require('child_process');
+const http = require('http');
 
 const ps = spawn('powershell', ['-NoProfile', '-Command', '-']);
 
@@ -18,11 +18,6 @@ const urgePhrases = [
   "Stop staring at the screen and write code!",
   "Move your fingers! We need results today."
 ];
-=======
-const { execSync, exec } = require('child_process');
-const https = require('https');
-const http = require('http');
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
 
 app.disableHardwareAcceleration();
 
@@ -90,8 +85,8 @@ function sendWhipMessage() {
 // ---- Window detection: find OpenClaw / terminal windows ----
 function findTargetWindows() {
   const isWindows = process.platform === 'win32';
-  const isWSL     = process.platform === 'linux' && require('fs').existsSync('/proc/version') &&
-                    require('fs').readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft');
+  const isWSL = process.platform === 'linux' && require('fs').existsSync('/proc/version') &&
+    require('fs').readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft');
 
   if (isWindows || isWSL) {
     // PowerShell: enumerate visible windows matching terminal/openclaw
@@ -112,11 +107,13 @@ Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -
 }`.trim();
 
     try {
-      const cmd = isWSL
-        ? `powershell.exe -NoProfile -NonInteractive -Command "${ps.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`
-        : `powershell -NoProfile -NonInteractive -Command "${ps.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`;
-
-      const out = execSync(cmd, { timeout: 3000 }).toString().trim();
+      const psArgs = ['-NoProfile', '-NonInteractive', '-Command', ps];
+      const cmd = isWSL ? 'powershell.exe' : 'powershell';
+      
+      const result = spawnSync(cmd, psArgs, { timeout: 3000 });
+      if (result.error) throw result.error;
+      
+      const out = result.stdout.toString().trim();
       targetWindows = out.split('\n').filter(Boolean).map(line => {
         const [title, l, t, r, b] = line.trim().split('|');
         return { title, x: +l, y: +t, width: (+r) - (+l), height: (+b) - (+t) };
@@ -131,7 +128,7 @@ Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -
       targetWindows = ids.filter(Boolean).map(id => {
         try {
           const geo = execSync(`xdotool getwindowgeometry ${id}`, { timeout: 1000 }).toString();
-          const pos  = geo.match(/Position: (\d+),(\d+)/);
+          const pos = geo.match(/Position: (\d+),(\d+)/);
           const size = geo.match(/Geometry: (\d+)x(\d+)/);
           const name = execSync(`xdotool getwindowname ${id}`, { timeout: 500 }).toString().trim();
           if (!pos || !size) return null;
@@ -181,7 +178,6 @@ function createWindow() {
 
   globalShortcut.register('Escape', () => app.quit());
 
-<<<<<<< HEAD
   // Global Mouse Tracking Loop
   // We poll the mouse position since iohook is problematic on modern Electron.
   // 60Hz polling is smooth enough for the whip physics.
@@ -195,26 +191,23 @@ function createWindow() {
     // (Assuming window is at 0,0 on primary display)
     const localX = point.x - primaryDisplay.bounds.x;
     const localY = point.y - primaryDisplay.bounds.y;
-    
+
     win.webContents.send('mouse-move', { x: localX, y: localY });
   }, 16);
 
   // Tray icon — minimal 1px transparent icon, replaced with emoji fallback
-=======
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
   try {
     const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
     tray = new Tray(icon);
   } catch {
     tray = new Tray(nativeImage.createEmpty());
   }
-<<<<<<< HEAD
 
   // Hook global click events using uiohook-napi
   uIOhook.on('mousedown', (e) => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('mouse-click');
-      
+
       // Type a random urging phrase
       const phrase = urgePhrases[Math.floor(Math.random() * urgePhrases.length)];
       // Wrap special chars { } so they literally type out if we ever used them, but here it's mostly plain text + Enter
@@ -225,8 +218,6 @@ function createWindow() {
   });
   uIOhook.start();
 
-=======
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
   tray.setToolTip('Claude Whip 🪶');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '🪶 Claude Whip', enabled: false },

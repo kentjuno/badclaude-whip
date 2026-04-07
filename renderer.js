@@ -6,6 +6,7 @@
 const canvas = document.getElementById('whip-canvas');
 const ctx = canvas.getContext('2d');
 const { ipcRenderer } = require('electron');
+const DAMPING = 0.98;
 
 // ---- Audio (Web Audio API — no files needed) ---------------
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -51,20 +52,11 @@ resize();
 window.addEventListener('resize', resize);
 
 // ---- Config ------------------------------------------------
-<<<<<<< HEAD
-const NUM_NODES   = 60;
+const NUM_NODES = 60;
 const SEGMENT_LEN = 6.5;
-const GRAVITY     = 0.15; // Adjusted heavily for 2x sub-stepping
-const ITERATIONS  = 45;
-const CRACK_VEL   = 36;
-=======
-const NUM_NODES   = 20;      // 75% of previous length
-const SEGMENT_LEN = 34;      // bigger gaps between nodes
-const GRAVITY     = 0.72;    // heavier droop
-const ITERATIONS  = 6;       // fewer = more flexible/whippy
-const DAMPING     = 0.87;    // velocity friction — makes it feel heavy
-const CRACK_VEL   = 18;      // sensitive enough to catch most forward snaps
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
+const GRAVITY = 0.15; // Adjusted heavily for 2x sub-stepping
+const ITERATIONS = 45;
+const CRACK_VEL = 36;
 const CRACK_FRAMES = 10;
 
 // ---- Sound (MP3 Asset) -------------------------------------
@@ -78,8 +70,6 @@ function playCrackSound() {
 
 // ---- State -------------------------------------------------
 let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-
-const { ipcRenderer } = require('electron');
 
 // Track cursor via IPC from main process
 ipcRenderer.on('mouse-move', (event, { x, y }) => {
@@ -101,8 +91,8 @@ function initNodes() {
   nodes = [];
   for (let i = 0; i < NUM_NODES; i++) {
     nodes.push({
-      x:  mouse.x,
-      y:  mouse.y + i * SEGMENT_LEN,
+      x: mouse.x,
+      y: mouse.y + i * SEGMENT_LEN,
       px: mouse.x,
       py: mouse.y + i * SEGMENT_LEN,
     });
@@ -124,7 +114,7 @@ setInterval(refreshTargetWindows, 5000);
 function checkWindowHit(tipX, tipY) {
   for (const w of targetWindows) {
     if (tipX >= w.x && tipX <= w.x + w.width &&
-        tipY >= w.y && tipY <= w.y + w.height) {
+      tipY >= w.y && tipY <= w.y + w.height) {
       console.log('HIT:', w.title);
       ipcRenderer.send('whip-hit');
       return true;
@@ -156,7 +146,7 @@ function updatePhysics() {
   const hlen_pre = Math.sqrt(hdx_pre * hdx_pre + hdy_pre * hdy_pre) || 1;
   const hnx = hdx_pre / hlen_pre;
   const hny = hdy_pre / hlen_pre;
-  
+
   for (let i = 1; i <= 15; i++) {
     // Force the first several segments to follow the handle's trajectory to create the majestic arc
     const targetX = nodes[i - 1].x + hnx * SEGMENT_LEN;
@@ -172,14 +162,14 @@ function updatePhysics() {
     let angle = Math.atan2(nodes[0].y - mouse.y, nodes[0].x - mouse.x);
     while (angle > Math.PI) angle -= 2 * Math.PI;
     while (angle < -Math.PI) angle += 2 * Math.PI;
-    
+
     // Simulates wrist strength: holding the handle UP but slightly tilted RIGHT to encourage the beautiful arc
     const targetAngle = -Math.PI * 0.35; // ~63 degrees up-right
     let angleDiff = targetAngle - angle;
     while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
     while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-    angle += angleDiff * 0.05; 
-    
+    angle += angleDiff * 0.05;
+
     // Clamp to 45 deg left/right of straight UP
     // Valid range: [-135 deg, -45 deg] = [-3*Math.PI/4, -Math.PI/4]
     // If it falls outside this range, snap it to the closest valid edge
@@ -203,17 +193,17 @@ function updatePhysics() {
       const diff = (dist - SEGMENT_LEN) / dist;
       const ox = dx * diff * 0.5;
       const oy = dy * diff * 0.5;
-      
+
       a.x += ox; a.y += oy;
       b.x -= ox; b.y -= oy;
     }
-    
+
     // Re-enforce handle lock after rope pulls it
     if (iter === ITERATIONS - 1) {
       let finalAngle = Math.atan2(nodes[0].y - mouse.y, nodes[0].x - mouse.x);
       while (finalAngle > Math.PI) finalAngle -= 2 * Math.PI;
       while (finalAngle < -Math.PI) finalAngle += 2 * Math.PI;
-      
+
       if (finalAngle > -Math.PI / 4 && finalAngle <= Math.PI / 2) {
         finalAngle = -Math.PI / 4;
       } else if (finalAngle > Math.PI / 2 || finalAngle < -3 * Math.PI / 4) {
@@ -224,34 +214,13 @@ function updatePhysics() {
     }
   }
 
-<<<<<<< HEAD
   // Visuals handled by global click listener now. 
   // We just decrement the flash timer if active.
-=======
-  // Crack detection — forward snap only (tip moving away from handle)
-  const tip = nodes[NUM_NODES - 1];
-  const tvx = tip.x - tip.px;
-  const tvy = tip.y - tip.py;
-  const tipSpeed = Math.sqrt(tvx * tvx + tvy * tvy);
-
-  // Vector from handle to tip
-  const htx = tip.x - nodes[0].x;
-  const hty = tip.y - nodes[0].y;
-  const htLen = Math.sqrt(htx * htx + hty * hty) || 1;
-  // Dot product of tip velocity with handle→tip direction
-  // Positive = tip moving away from handle (forward snap)
-  const forwardDot = (tvx * htx + tvy * hty) / htLen;
-
-  if (tipSpeed > CRACK_VEL && forwardDot > -2 && crackTimer <= 0) {
-    crackTimer = CRACK_FRAMES;
-    crackX = tip.x;
-    crackY = tip.y;
-    playWhipCrack();
-    checkWindowHit(tip.x, tip.y);
-    console.log('CRACK! speed:', tipSpeed.toFixed(1));
-  }
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
   if (crackTimer > 0) crackTimer--;
+
+  // Check for window hit on the tip
+  const tip = nodes[NUM_NODES - 1];
+  checkWindowHit(tip.x, tip.y);
 }
 
 // ---- Drawing -----------------------------------------------
@@ -284,7 +253,7 @@ function drawWhip() {
       const dy = b.y - a.y;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
       const nx = -dy / len;
-      const ny =  dx / len;
+      const ny = dx / len;
 
       // Outline pass: expand by outlineWidth
       const ora = pass === 0 ? ra + outlineWidth : ra;
@@ -295,56 +264,43 @@ function drawWhip() {
       const bx1 = b.x + nx * orb, by1 = b.y + ny * orb;
       const bx2 = b.x - nx * orb, by2 = b.y - ny * orb;
 
-<<<<<<< HEAD
-    ctx.fillStyle = `rgb(${r},${g},${bv})`;
-    ctx.beginPath();
-    ctx.moveTo(ax1, ay1);
-    ctx.lineTo(bx1, by1);
-    ctx.lineTo(bx2, by2);
-    ctx.lineTo(ax2, ay2);
-    ctx.closePath();
-    ctx.fill();
+      // Calculate colors for this node segment
+      const t = i / (NUM_NODES - 1);
+      const r = Math.round(160 - t * 60);
+      const g = Math.round(80 - t * 30);
+      const bv = Math.round(20 - t * 10);
 
-    // Circular joint to completely hide polygonal seams between segments
-    if (i > 0) {
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, Math.abs(ra), 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Cap the very tip of the whip with a circle
-    if (i === NUM_NODES - 2) {
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, Math.abs(rb), 0, Math.PI * 2);
-      ctx.fill();
-    }
+      if (pass === 0) {
+        // Outline — solid dark brown/black
+        ctx.fillStyle = 'rgba(20, 8, 0, 0.92)';
+      } else {
+        // Fill pass
+        ctx.fillStyle = `rgb(${r},${g},${bv})`;
+      }
 
-    // Highlight stripe on top edge (leather sheen)
-    if (ra > 1.5) {
-=======
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
       ctx.beginPath();
       ctx.moveTo(ax1, ay1);
       ctx.lineTo(bx1, by1);
       ctx.lineTo(bx2, by2);
       ctx.lineTo(ax2, ay2);
       ctx.closePath();
-
-      if (pass === 0) {
-        // Outline — solid dark brown/black
-        ctx.fillStyle = 'rgba(20, 8, 0, 0.92)';
-      } else {
-        // Fill — bold warm brown, more saturated than before
-        const t = i / (NUM_NODES - 1);
-        const r = Math.round(160 - t * 60);
-        const g = Math.round(80  - t * 30);
-        const bv = Math.round(20  - t * 10);
-        ctx.fillStyle = `rgb(${r},${g},${bv})`;
-      }
       ctx.fill();
+
+      // Circular joint to completely hide polygonal seams between segments
+      if (i > 0) {
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, Math.abs(ra), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Cap the very tip of the whip with a circle
+      if (i === NUM_NODES - 2) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, Math.abs(rb), 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Highlight stripe on fill pass only
       if (pass === 1 && ra > 2) {
-        const t = i / (NUM_NODES - 1);
         ctx.beginPath();
         ctx.moveTo(ax1, ay1);
         ctx.lineTo(bx1, by1);
@@ -355,9 +311,6 @@ function drawWhip() {
       }
     }
   }
-
-  // --- Handle ---
-  drawHandle();
 
   // --- Crack flash ---
   if (crackTimer > 0) {
@@ -401,29 +354,12 @@ function drawHandle() {
   const ux = dx / handleLen;
   const uy = dy / handleLen;
 
-<<<<<<< HEAD
   // Handle rod
   const grad = ctx.createLinearGradient(baseX, baseY, topX, topY);
-  grad.addColorStop(0,   '#3b1a06');
+  grad.addColorStop(0, '#3b1a06');
   grad.addColorStop(0.3, '#7a3b10');
   grad.addColorStop(0.7, '#5c2a0a');
-  grad.addColorStop(1,   '#2a0f02');
-=======
-  // Handle rod — outline first, then fill
-  ctx.beginPath();
-  ctx.moveTo(hx, hy);
-  ctx.lineTo(x, y);
-  ctx.strokeStyle = 'rgba(20, 8, 0, 0.92)';
-  ctx.lineWidth = 16;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  const grad = ctx.createLinearGradient(hx, hy, x, y);
-  grad.addColorStop(0,   '#4a2008');
-  grad.addColorStop(0.3, '#9a4e18');
-  grad.addColorStop(0.7, '#7a3a0e');
-  grad.addColorStop(1,   '#3a1504');
->>>>>>> ea9f690b3353f12864539f4c1296e0b9a11b8ac7
+  grad.addColorStop(1, '#2a0f02');
 
   ctx.beginPath();
   ctx.moveTo(baseX, baseY);
@@ -458,13 +394,14 @@ function drawHandle() {
 // ---- Loop --------------------------------------------------
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
+
   // 2 sub-steps per frame keeps wave-propagation lightning fast 
   // even with 60 physics nodes making up the whip!
   updatePhysics();
   updatePhysics();
-  
+
   drawWhip();
+  drawHandle(); // Always draw handle on top
   requestAnimationFrame(loop);
 }
 
